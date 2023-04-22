@@ -1,138 +1,129 @@
 #!/usr/bin/python3
 
 import time
-import click
+import argparse
 import numpy as np
 import math
-import numba
-from numba import cuda
 
-# initial sketch of python dgemm benchmark for n10 vendors
 
-def create_input_arrays(niterations, nsize, accelerator):
+#// ------------------------------------------------------- //
+#// Function: create_cpu_arrays
+#//
+#// Vendor may modify this call to use specialized libraries
+#// and/or add decorators.
+#// Note: this time is reported but is not part of
+#// of the official measurement.
+#// ------------------------------------------------------- //
+def create_cpu_arrays(nsize, A, B):
+    for j in range(nsize):
+        for k in range(nsize):
+            A[j, k] = j*math.sin(j) + j*math.cos(k)
+            B[j, k] = j*math.cos(k) + j*math.sin(j)
+    return A, B
 
-    # preallocate memory for cpu arrays
-    A = np.zeros((niterations, nsize, nsize))
-    B = np.zeros((niterations, nsize, nsize))
-    # call our numba jitted function
+
+#// ------------------------------------------------------- //
+#// Function: prepare_accel_config. Optional.
+#//
+#// Vendor may modify this call to use accelerator-specific
+#// libraries (shown here: cupy and numba.cuda). Accelerator
+#// kernel parameters may also be changed.
+#// Note: this time is reported but is not part of
+#// of the official measurement.
+#// ------------------------------------------------------- //
+def prepare_accel_config(nsize, A, B):
+    import cupy as cp
+    from numba import cuda
+
+    xp = cp
+
+    A = cp.zeros((nsize, nsize))
+    B = cp.zeros((nsize, nsize))
+
+    @cuda.jit
+    def create_accel_arrays(nsize, A, B):
+        j, k = cuda.grid(2)
+        m = nsize
+        if (j < m) and (k < m):
+            A[j, k] = j*math.sin(j) + j*math.cos(k)
+            B[j, k] = j*math.cos(k) + j*math.sin(j)
+
+    threadsperblock = (32, 32)
+    blockspergrid_x = math.ceil(nsize / threadsperblock[0])
+    blockspergrid_y = math.ceil(nsize / threadsperblock[1])
+    blockspergrid = (blockspergrid_x, blockspergrid_y)
+    
+    # launch kernel
+    tstart_accel_create = time.time()
+    create_accel_arrays[blockspergrid, threadsperblock](nsize, A, B)
+    cuda.synchronize()
+    tend_accel_create = time.time()
+    deltat_accel_create = tend_accel_create - tstart_accel_create
+    
+    return deltat_accel_create, A, B, xp
+
+
+#// ------------------------------------------------------- //
+#// Function: create_input_arrays
+#//
+#// Vendor may modify this call to use additional libraries
+#// (ex: alternatives to numpy)
+#// ------------------------------------------------------- //
+def create_input_arrays(nsize, accelerator):
+    A = np.zeros((nsize, nsize))
+    B = np.zeros((nsize, nsize))
     tstart_cpu_create = time.time()
-    [A, B] = create_cpu_arrays(niterations, nsize, A, B)
+    [A, B] = create_cpu_arrays(nsize, A, B)
     tend_cpu_create = time.time()
     deltat_cpu_create = tend_cpu_create - tstart_cpu_create
-    # our cpu arrays will be our reference arrays- the vendor cannot change the reference
     A_ref = A
     B_ref = B
 
-    if accelerator:
-        # vendor is free to adjust creation of gpu input arrays
-        # choice of input library or libraries is flexible
-        # vendor is also free to adjust kernel launch configuration
-        #######################edit#########################
-        import cupy as xp
-        # TODO: figure out how we can do this import here if possible
-        #from numba import cuda
-
-        A = xp.zeros((niterations, nsize, nsize))
-        B = xp.zeros((niterations, nsize, nsize))
-
-        #32 by 32 by 32 results in a kernel launch error, maybe due to too many threads
-        threadsperblock = (16, 16, 4) #will need to optimize
-        blockspergrid_x = math.ceil(niterations / threadsperblock[0])
-        blockspergrid_y = math.ceil(nsize / threadsperblock[1])
-        blockspergrid_z = math.ceil(nsize / threadsperblock[2])
-        blockspergrid = (blockspergrid_x, blockspergrid_y, blockspergrid_z)
-        # launch kernel
-        tstart_gpu_create = time.time()
-        create_gpu_arrays[blockspergrid, threadsperblock](niterations, nsize, A, B)
-        cuda.synchronize()
-        tend_gpu_create = time.time()
-        deltat_gpu_create = tend_gpu_create - tstart_gpu_create
-        #####################################################
-    else:
-        deltat_gpu_create = None
-
-    return deltat_cpu_create, deltat_gpu_create, A, B, A_ref, B_ref
-
-
-# these are our cpu reference arrays
-# to force numpy.matmul to use gemm, it's important that B is not the transpose of A
-# feedback welcome on how to make the array creation more interesting/expensive
-@numba.jit()
-def create_cpu_arrays(niterations, nsize, A, B):
-    for i in range(niterations):
-        for j in range(nsize):
-            for k in range(nsize):
-                A[i, j, k] = i*math.sin(j) + j*math.cos(k)
-                B[i, j, k] = i*math.cos(k) + j*math.sin(j)
-
-    return A, B
-
-# vendor is free to adjust creation of gpu input arrays
-# choice of input library or libraries and method is flexible
-#####################edit#############################
-@cuda.jit()
-def create_gpu_arrays(niterations, nsize, A, B):
-    i, j, k = cuda.grid(3)
-    n = niterations
-    m = nsize
-
-    if (i < n) and (j < m) and (k < m):
-        A[i, j, k] = i*math.sin(j) + j*math.cos(k)
-        B[i, j, k] = i*math.cos(k) + j*math.sin(j)
-
-######################################################
-
-
-def matmul_loop(niterations, nsize, A, B, accelerator):
-
+    #option to use acclerator
+    deltat_accel_create = None
     xp = np
     if accelerator:
-       # vendor is free to adjust target accelerator library
-       # import jax as xp, import pytorch as xp, etc...
-       # other syntax must remain the same
-       #####################edit#########################
-       import cupy as xp
-       ##################################################
+        [deltat_accel_create, A, B, xp]  = prepare_accel_config(nsize, A, B)
+
+    return deltat_cpu_create, deltat_accel_create, A, B, A_ref, B_ref, xp
+
+
+#// ------------------------------------------------------- //
+#// Function: matmul_loop
+#//
+#// Vendor may modify this call to use an alternative to
+#// numpy, but the general functional form must remain the same
+#// ------------------------------------------------------- //
+def matmul_loop(niterations, nsize, A, B, xp):
 
     # preallocate memory for output
-    C = xp.empty((niterations, nsize, nsize))
+    C = xp.empty((nsize, nsize))
     
+    deltat_matmul = np.zeros(niterations)
     for i in range(niterations):
-        if i == 0:
-            # throw away initial iteration
-            C[i,:,:] = xp.matmul(A[i,:,:], B[i,:,:])
-        if i == 1:
-            # start timer on second iteration
-            tstart_matmul = time.time()
-            C[i,:,:] = xp.matmul(A[i,:,:], B[i,:,:])
-        else:
-            C[i,:,:] = xp.matmul(A[i,:,:], B[i,:,:])
-
-
-    # end timer    
-    tend_matmul = time.time()
-    deltat_matmul = tend_matmul - tstart_matmul
+        tstart_matmul = time.time()
+        C = xp.matmul(A, B)
+        tend_matmul = time.time()
+        deltat_matmul[i] = tend_matmul - tstart_matmul
     
-    # sanity check
+    # sanity check array type
     print("type of C:", type(C))
-    print("size of C:", np.shape(C))
 
     return deltat_matmul, C
-    
-    
-def check_correctness(A, B, C, A_ref, B_ref, accelerator):
-    
-    # correctness test using numpy as a reference
-    # note we are checking against both the matrix inputs and the matrix outputs
+
+
+#// ------------------------------------------------------- //
+#// Function: check_correctness
+#//
+#// Vendor may not modify this call
+#//
+#// ------------------------------------------------------- //    
+def check_correctness(A, B, C, A_ref, B_ref, accelerator): 
     # performance timing will not be reported if correctness fails
     if accelerator:
-        #if using accelerator library, it needs to moved back to the host and converted back into numpy format
-        #the conversion implementation may differ for different libraries, so vendor is free to adjust
-        #######################edit####################
         A_test = A.get()
         B_test = B.get()
         C_test = C.get()
-        ###############################################
     else:
         A_test = A
         B_test = B
@@ -144,36 +135,68 @@ def check_correctness(A, B, C, A_ref, B_ref, accelerator):
     C_ref = np.matmul(A_ref, B_ref)
     assert np.allclose(C_ref, C_test)
     print("correctness test passed")
-    
 
-def report_performance(niterations, nsize, deltat_cpu_create, deltat_gpu_create, deltat_matmul, accelerator):
 
+#// ------------------------------------------------------- //
+#// Function: report_performance
+#//
+#// Vendor may not modify this function
+#// 
+#// ------------------------------------------------------- //
+def report_performance(niterations, nsize, deltat_cpu_create, deltat_accel_create, deltat_matmul, accelerator):
+  
     if accelerator:
-        print("total time for {} x {} x {} input array creation is {}".format(niterations, nsize, nsize, deltat_gpu_create))
-        print("total time for {} matmul interations is {} s".format(niterations, deltat_matmul))
-        total_benchmark_time = deltat_gpu_create + deltat_matmul
-        print("total benchmark time is {} s".format(total_benchmark_time))
-        
+        print("total time for {} x {} input array creation: {} s".format(nsize, nsize, deltat_accel_create))
+        total_benchmark_time = deltat_accel_create + np.sum(deltat_matmul)
     else:        
-        print("total time for {} x {} x {} input array creation is {}".format(niterations, nsize, nsize, deltat_cpu_create))
-        print("total time for {} matmul interations is {} s".format(niterations, deltat_matmul))
-        total_benchmark_time = deltat_cpu_create + deltat_matmul
-        print("total benchmark time is {} s".format(total_benchmark_time))
+        print("total time for {} x {} input array creation: {} s".format(nsize, nsize, deltat_cpu_create))
+        total_benchmark_time = deltat_cpu_create + np.sum(deltat_matmul)
+    print("total benchmark time: {} s".format(total_benchmark_time))
+
+    # prepare to print out first, last, and best 
+    first = 0
+    last = niterations - 1
+    best = np.argmin(deltat_matmul)
+    inds = [first, last, best]
+    ninds = np.asarray(['first', 'last', 'best'])
+
+    for i, ind in enumerate(inds):
+        flops = (nsize**3)*2.0*niterations + nsize*3*niterations
+        gflops = (flops/deltat_matmul[ind])/1.0e9
+        print("{} iteration gflop/s: {}".format(ninds[i], gflops))
     
 
-@click.command()
-@click.option('--niterations', default=10, type=int)
-@click.option('--nsize', default=8000, type=int)
-@click.option('--accelerator', default=False, type=bool)
+#// ------------------------------------------------------- //
+#// Function: main
+#//
+#// Vendor may not modify this function. They can optionally
+#// chose to use an acclerator via a command line argument.
+#// ------------------------------------------------------- //
+def main():
+ 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--niterations", type=int, required=False, default=10, help="number of iterations")
+    parser.add_argument("--nsize", type=int, required=False, default=8000, help="dimension of square matrix")
+    parser.add_argument("--accelerator", required=False, action='store_true', help="option to use accelerator")
+    args = parser.parse_args()
+    niterations = args.niterations
+    nsize = args.nsize
+    accelerator = args.accelerator
+    
+    if accelerator:
+        print("using accelerator: {}".format(accelerator))
 
+    # create arrays on cpu and accelerator if that option was requested
+    [deltat_cpu_create, deltat_accel_create, A, B, A_ref, B_ref, xp] = create_input_arrays(nsize, accelerator)
+    
+    # do matmul (dgemm) 
+    [deltat_matmul, C] = matmul_loop(niterations, nsize, A, B, xp)
 
-def main(niterations, nsize, accelerator):
-   
-    print("using accelerator: {}".format(accelerator))
-    [deltat_cpu_create, deltat_gpu_create, A, B, A_ref, B_ref] = create_input_arrays(niterations, nsize, accelerator)
-    [deltat_matmul, C] = matmul_loop(niterations, nsize, A, B, accelerator)
+    # check against source of truth (numpy)
     check_correctness(A, B, C, A_ref, B_ref, accelerator)
-    report_performance(niterations, nsize, deltat_cpu_create, deltat_gpu_create, deltat_matmul, accelerator)
+
+    # if correctness test has passed, report performance
+    report_performance(niterations, nsize, deltat_cpu_create, deltat_accel_create, deltat_matmul, accelerator)
     
 if __name__ == '__main__':
     main()
