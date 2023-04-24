@@ -1,81 +1,106 @@
-# Python DGEMM Benchmark
+# NERSC 10 Python DGEMM Compute Benchmark
 
-Initial sketch of Python-based DGEMM benchmark for N10 vendors
+Benchmark Version: 1.0.0
 
-## Environment set up
+## Benchmark Description
 
-You can create a cupy-enabled custom conda environment via
+This benchmark uses Python libraries to compute a
+matrix multiplication. NumPy's `matmul` function
+calls the underlying `gemm` function. 
+To force `numpy.matmul` to use `gemm`, it's important
+that B is not the transpose of A.
+
+The benchmark has an option to compute the matrix
+multiplication on an accelerator rather than a
+CPU. The Offeror may elect to use this capability
+with a "numpy-like" library. The idea is to demonstrate
+good `gemm` performance while using Python libaries.
+
+## Permitted Modifications
+
+Offerors are permitted to modify the benchmark in the following ways:
+
+The Offeror may elect to use the `--accelerator` option
+in this benchmark. If they chose to use this option, they
+may change the `prepare_accel_config` only.
+
+The Offeror may change the libraries used in this function
+to an accelerator-specific library or libraries. Further,
+they may change the kernel launch parameters. 
+
+Note that any
+option they chose must follow a similar functional form
+to [NumPy matmul](https://numpy.org/doc/stable/reference/generated/numpy.matmul.html).
+In other words, substituting an
+`import numpy as xp` for `import libx as xp` is expected
+to work without modification.
+
+## Run Rules
+
+Don't cheat
+
+## How to Set up Environment, Run and Verify
+
+To install required Python packages, you will need a Python3
+installation.
 
 ```
-salloc -N 1 -t 30 -C gpu -G 1 -A nstaff -q interactive
-module load python
-conda create -n cupy python=3.10 -y 
-conda activate cupy
-conda install numba click cupy -c conda-forge
+python3 -m pip install numpy
 ```
 
-## How to run
+is all that is required for the CPU-only benchmark. Other required
+libraries may also be installed via `pip`.
 
-You can launch the benchmark using the defaults:
-
-```
-python python-dgemm.py
-```
-
-The problem size, number of iterations, and acclerator option can be changed:
+The size of the matrix can be changed on the command line:
 
 ```
-python python-dgemm.py --niterations <default 10> --nsize <default 8000> --accelerator <default False>
+python python-dgemm.py --nsize 100
 ```
 
-## Some sample runs on Muller
+will execute using 100x100 block matrices. 
 
-GPU:
+For testing, the number of iterations can also be changed:
 
 ```
-(/global/common/software/das/stephey/conda/conda_envs/cupy) stephey@nid001072:/mscratch/sd/s/stephey/python-benchmark/python-dgemm> python python-dgemm.py --accelerator True
+python python-dgemm.py --niterations 3
+```
+
+The Offeror has the option running the benchmark on an 
+acclerator rather than a CPU. This can be enabled
+by specified the `--accelerator` argument:
+
+```
+python python-dgemm.py --accelerator
+```
+
+This option requires the Offeror to modify the `prepare_accel_config`
+function.
+
+## How to report
+
+The primary FOM is "total gflop/s rate". Report all data printed to stdout.
+
+### Sample output:
+
+```
+(cupy)stephey@perlmutter:login27:~/py-dgemm/python-dgemm> python python-dgemm.py
+type of C: <class 'numpy.ndarray'>
+correctness test passed
+total time for 8000 x 8000 input array creation: 40.28472971916199 s
+total benchmark time: 71.11348176002502 s
+first iteration gflop/s: 3414.9207940385572
+last iteration gflop/s: 3193.528395079785
+best iteration gflop/s: 3635.744709581615
+```
+
+```
+(cupy)stephey@perlmutter:login27:~/py-dgemm/python-dgemm> python python-dgemm.py --accelerator
 using accelerator: True
 type of C: <class 'cupy.ndarray'>
 correctness test passed
-total time for 10 x 8000 x 8000 input array creation is 0.16782903671264648
-total time for 10 matmul interations is 0.0010180473327636719 s
-total benchmark time is 0.16884708404541016 s
+total time for 8000 x 8000 input array creation: 0.15517330169677734 s
+total benchmark time: 0.42073655128479004 s
+first iteration gflop/s: 38672.182529254635
+last iteration gflop/s: 144611696.85735005
+best iteration gflop/s: 144611696.85735005
 ```
-
-CPU:
-
-```
-(/global/common/software/das/stephey/conda/conda_envs/cupy) stephey@nid001072:/mscratch/sd/s/stephey/python-benchmark/python-dgemm> python python-dgemm.py --accelerator False
-using accelerator: False
-type of C: <class 'numpy.ndarray'>
-correctness test passed
-total time for 10 x 8000 x 8000 input array creation is 8.490462064743042
-total time for 10 matmul interations is 12.06446361541748 s
-total benchmark time is 20.554925680160522 s
-```
-
-## Open questions
-
-I intially had the `from numba import cuda` in an `if` block, but I found that
-python threw an error for the `cuda.jit` decorator. Ideally we wouldn't need
-to import `numba.cuda` unless required, but for now I left it in the top 
-import block.
-
-I just picked a `math.sin` and `math.cos` based function to create the matrix
-inputs. My main objective was to avoid creating A and B such that B was the
-transpose of A, in which case the `numpy.matmul` function can take a shortcut.
-We want to force it to use `dgemm`.  If there are more interesting or expensive
-functions to try here, we can definitely change this part out. Our main
-limitation is the [relatively small subset of
-functionality](https://numba.pydata.org/numba-doc/dev/cuda/cudapysupported.html)
-supported in Numba CUDA.
-
-I also randomly chose a kernel size for Numba CUDA of [16, 16, 4]. I think my
-initial choice of [32, 32, 32] exceeded the thread limit.  There is probably a
-more optimal choice, although I think it will change depending on the
-accelerator hardware, and we currently do allow them to edit this part.
-
-I am taking the total time for all iterations over `np.matmul` (aka `dgemm`)-
-we may want to split this out per iteration? I'm not sure what you all prefer. 
-
-
