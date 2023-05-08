@@ -20,14 +20,14 @@ must be confined to the region above the line:
 
 Drop-in replacements for NumPy (e.g. [CuPy](https://cupy.dev)) may used.
 Acceptable replacements must
-- be loaded using the standard Python import command (`import accelerated-python`).
+- be loaded using the standard Python import command (`import NumpyReplacement`).
 - use the same matrix multiplication interface used by
 [NumPy matmul](https://numpy.org/doc/stable/reference/generated/numpy.matmul.html).
 The underlying dgemm function may be substituted using other libraries,
 and kernel launch parameters may be modified.
 
 If a NumPy replacement is used, then
-it should be imported using the `ap` alias: `import accelerated-python as xp`.
+it should be imported using the `xp` alias: `import NumpyReplacement as xp`.
 The runtime option `--accelerator` will be used to switch between NumPy and `xp`.
 
 Custom implementatons of the matrix initialization function (`initialize_accel_arrays`)
