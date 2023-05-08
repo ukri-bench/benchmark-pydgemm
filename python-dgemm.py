@@ -19,7 +19,7 @@ ap = cupy
 #// If needed, device or library initialization
 #// should be added to this function
 #// -----
-def numpy_initializer():
+def numpy_initializer(show_numpy):
     if accelerator:
         try: 
             xp = ap
@@ -29,6 +29,8 @@ def numpy_initializer():
             exit(1)
     else:
         xp = np
+        if show_numpy:
+            print(np.show_config())
     return xp
 
 #// -----
@@ -237,6 +239,7 @@ def get_args():
     parser.add_argument("--niterations", type=int, required=False, default=10, help="number of iterations")
     parser.add_argument("--nsize", type=int, required=False, default=8000, help="dimension of square matrix")
     parser.add_argument("--accelerator", required=False, action='store_true', help="option to use accelerator")
+    parser.add_argument("--shownumpy", required=False, action='store_true', help="show numpy configuration")
     args = parser.parse_args()
 
     print("Requested Arguments:")
@@ -260,10 +263,11 @@ def main():
     accelerator = args.accelerator
     niterations = args.niterations
     nsize       = args.nsize
+    show_numpy  = args.shownumpy
     
     #choose the appropriate numpy-like interface:
     #ap for accelerators, or numpy for host
-    xp = numpy_initializer()
+    xp = numpy_initializer( show_numpy )
 
     #create working arrays on the target processor ( host or accelerator )
     [ A, B, C ] = create_arrays( nsize, xp )
