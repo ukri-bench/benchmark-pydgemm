@@ -5,12 +5,12 @@ import argparse
 import numpy as np
 import math
 
-#accelerated python modules should be loaded here
-#substitute your own!
-#accelerated-numpy should be renamed "ap"
-import cupy 
-from numba import cuda
-ap = cupy
+##accelerated python modules should be loaded here
+##substitute your own!
+##accelerated-numpy should be renamed "ap"
+#import cupy 
+#from numba import cuda
+#ap = cupy
 
 
 #// -----
@@ -29,8 +29,10 @@ def numpy_initializer(show_numpy):
             exit(1)
     else:
         xp = np
-        if show_numpy:
-            print(np.show_config())
+
+    if show_numpy:
+        print( xp.show_config() )
+
     return xp
 
 #// -----
