@@ -5,12 +5,12 @@ import argparse
 import numpy as np
 import math
 
-##accelerated python modules should be loaded here
+##Hardware-specific python modules (including drop-in Numpy subtitutes) here
 ##substitute your own!
-##accelerated-numpy should be renamed "ap"
+##NumPy substitutes should be aliased to "xp"
 #import cupy 
 #from numba import cuda
-#ap = cupy
+#xp = cupy
 
 
 #// -----
@@ -21,9 +21,8 @@ import math
 #// -----
 def numpy_initializer(show_numpy):
     if accelerator:
-        try: 
-            xp = ap
-            print("Using accelerated numpy:\n  {}\n".format( ap ) )
+        try:
+            print("Using accelerated numpy:\n  {}\n".format( xp ) )
         except:
             print("The --accelerator option was used, but no accelerated numpy (e.g. cupy) was found.")
             exit(1)
@@ -268,7 +267,6 @@ def main():
     show_numpy  = args.shownumpy
     
     #choose the appropriate numpy-like interface:
-    #ap for accelerators, or numpy for host
     xp = numpy_initializer( show_numpy )
 
     #create working arrays on the target processor ( host or accelerator )
@@ -277,7 +275,7 @@ def main():
     # do matmul (dgemm) 
     deltat_matmul = matmul_loop( niterations, A, B, C, xp )
 
-    # check against source of truth (naive matmul)
+    # check against source of truth
     is_correct = check_correctness( nsize, A, B, C )
     assert( is_correct )
 

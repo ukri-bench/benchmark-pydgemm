@@ -18,7 +18,6 @@ All code modifications to `python-dgemm.py`
 must be confined to the region above the line:
 `#// CODE BELOW THIS LINE SHOULD NOT BE MODIFIED`
 
-
 Drop-in replacements for NumPy (e.g. [CuPy](https://cupy.dev)) may used.
 Acceptable replacements must
 - be loaded using the standard Python import command (`import accelerated-python`).
@@ -28,8 +27,8 @@ The underlying dgemm function may be substituted using other libraries,
 and kernel launch parameters may be modified.
 
 If a NumPy replacement is used, then
-it should be imported using the `ap` alias: `import accelerated-python as ap`.
-The runtime option `--accelerator` will be used to switch between NumPy and `ap`.
+it should be imported using the `ap` alias: `import accelerated-python as xp`.
+The runtime option `--accelerator` will be used to switch between NumPy and `xp`.
 
 Custom implementatons of the matrix initialization function (`initialize_accel_arrays`)
 are permitted. 
@@ -65,9 +64,9 @@ Other BLAS libraries may be configured as described in the
 [NumPy User Guide](https://docs.conda.io/projects/conda/en/latest/user-guide/concepts/packages.html#installing-numpy-with-blas-variants)
 
 
-### Accelerated NumPy (optional)
+### NumPy Replacements (optional)
 
-The use of an accelerated NumPy package is optional.
+The use of an hardware-specific NumPy replacement package is optional.
 Selection and installation of a suitable package is highly architecture specific.
 This example is based on the use of CuPy on NERSC's Perlmutter system.
 
@@ -76,7 +75,7 @@ and [CuPy](https://cupy.dev/) packages are imported on lines
 [python-dgemm.py:8-13](https://gitlab.com/NERSC/N10-benchmarks/py-dgemm/-/blob/main/python-dgemm.py#L8).
 These lines should be un-commented and modified to import the appropriate accelerated NumPy package.
 
-The following commands will add CuPy and Numba to the conda environtment:
+The following commands will add CuPy and Numba to the conda environment:
 ```
 conda install numba
 conda install -c conda-forge cupy cudatoolkit=11.7
@@ -129,7 +128,7 @@ The following example multiplies 4096 x 4096 matrices.
 ```
 
 No external validation tests are required;
-`python-dgemm.py` includes a validation test at the end of its execution;
+`python-dgemm.py` includes a validation test at the end of its execution.
 
 
 ## Sample output:
