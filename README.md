@@ -30,7 +30,7 @@ If a NumPy replacement is used, then
 it should be imported using the `xp` alias: `import NumpyReplacement as xp`.
 The runtime option `--accelerator` will be used to switch between NumPy and `xp`.
 
-Custom implementatons of the matrix initialization function (`initialize_accel_arrays`)
+Custom implementations of the matrix initialization function (`initialize_accel_arrays`)
 are permitted. 
 Function decoration, tuned kernel launch parameters, and
 JIT modules(e.g. [Numba](https://numba.pydata.org/) )

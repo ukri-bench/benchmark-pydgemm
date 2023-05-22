@@ -12,14 +12,14 @@ import math
 #from numba import cuda
 #xp = cupy
 
-
 #// -----
 #// Function: numpy_initializer
-#// Switch between numpy(np) or accelerated-numpy(ap).
-#// If needed, device or library initialization
-#// should be added to this function
+#// Switch between numpy(np) or accelerated-numpy(xp).
+#// Device or library initialization may be added to this function if needed.
 #// -----
-def numpy_initializer(show_numpy):
+def numpy_initializer( shownumpy ):
+
+    global xp
     if accelerator:
         try:
             print("Using accelerated numpy:\n  {}\n".format( xp ) )
@@ -29,15 +29,15 @@ def numpy_initializer(show_numpy):
     else:
         xp = np
 
-    if show_numpy:
+    if shownumpy:
         print( xp.show_config() )
 
     return xp
 
 #// -----
 #// Function: synchronize_host_accel
-#// this is a no-op if running on the host
-#// May be modified for non-cuda
+#// This is a no-op if running on the host
+#// May be modified for non-cupy
 #// -----
 def synchronize_host_accel():
     if accelerator:
@@ -57,8 +57,8 @@ def initialize_accel_arrays( nsize, A, B ):
         j, k = cuda.grid(2)
         m = nsize
         if (j < m) and (k < m):
-            A[j, k] = j*math.sin(j) + j*math.cos(k)
-            B[j, k] = j*math.cos(k) + j*math.sin(j)
+            A[j, k] = j*math.sin(j) + k*math.cos(k)
+            B[j, k] = k*math.cos(j) + j*math.sin(k)
 
     threadsperblock = (32, 32)
     blockspergrid_x = math.ceil(nsize / threadsperblock[0])
@@ -67,7 +67,16 @@ def initialize_accel_arrays( nsize, A, B ):
     
     initialize_accel_arrays_kernel[blockspergrid, threadsperblock](nsize, A, B)
     cuda.synchronize()
+
+
+#// ----
+#// Function: copy_array_accel_to_host
+#//This may be modified for non-cupy.
+#// ----
+def copy_array_accel_to_host( Ad, Ah ):
+    Ah= Ad.get()
     
+
 #// -----
 #// CODE BELOW THIS LINE SHOULD NOT BE MODIFIED
 #// -----
@@ -79,8 +88,8 @@ def initialize_accel_arrays( nsize, A, B ):
 def initialize_host_arrays( nsize, A, B ):
     for j in range(nsize):
         for k in range(nsize):
-            A[j, k] = j*math.sin(j) + j*math.cos(k)
-            B[j, k] = j*math.cos(k) + j*math.sin(j)
+            A[j, k] = j*math.sin(j) + k*math.cos(k)
+            B[j, k] = k*math.cos(j) + j*math.sin(k)
 
 
 #// -----
@@ -125,8 +134,9 @@ def create_arrays(nsize, xp ):
 #// ------------------------------------------------------- //
 #// Function: matmul_loop
 #//
-#// Vendor may modify this call to use an alternative to
-#// numpy, but the general functional form must remain the same
+#// Run & time matmul iterations.
+#// This function should not be modified.
+#// The call to xp.matmul should have the same signature, even if xp != Numpy
 #// ------------------------------------------------------- //
 def matmul_loop(niterations, A, B, C, xp ):
 
@@ -171,16 +181,10 @@ def check_correctness( nsize, A, B, C ):
 
     print("Running correctness test...")
     
-    A_test = A
-    B_test = B
     C_test = C
     if accelerator:
-        A_test = np.zeros((nsize, nsize))
-        B_test = np.zeros((nsize, nsize))
         C_test = np.zeros((nsize, nsize))
-        A_test = A.get()
-        B_test = B.get()
-        C_test = C.get()
+        copy_array_accel_to_host( C, C_test )
 
     ntest = 1024
     is_correct = True
@@ -190,7 +194,9 @@ def check_correctness( nsize, A, B, C ):
         i = rng.integers( nsize, size=1 )[0]
         j = rng.integers( nsize, size=1 )[0]
         c_test = C[i,j]
-        c_ref  = sum( [Aik * Bkj for Aik, Bkj in zip( A[i,:], B[:,j] ) ] )
+        c_ref = sum( [ (i*math.sin(i) + k * math.cos(k)) *
+                       (j*math.cos(k) + k * math.sin(j))
+                       for k in range( nsize ) ] )
         itest_correct = math.isclose( c_ref, c_test )
         
         if not itest_correct:
@@ -241,13 +247,14 @@ def get_args():
     parser.add_argument("--nsize", type=int, required=False, default=8000, help="dimension of square matrix")
     parser.add_argument("--accelerator", required=False, action='store_true', help="option to use accelerator")
     parser.add_argument("--shownumpy", required=False, action='store_true', help="show numpy configuration")
+    parser.add_argument("--testseed", type=int, required=False, default=None, help="random seed for sampling matrix elements to validate (integer).")
     args = parser.parse_args()
 
     print("Requested Arguments:")
     print("  {:12s}: {}".format( "niterations", args.niterations ))
     print("  {:12s}: {}".format( "nsize",       args.nsize       ))
     print("  {:12s}: {}".format( "accelerator", args.accelerator ))
-    print()
+    print("  {:12s}: {}".format( "testseed",    args.testseed    ))
     
     return args
 
@@ -255,7 +262,7 @@ def get_args():
 #// Function: main
 #// -----
 def main():
- 
+
     #retreive command line arguments
     args = get_args()
 
@@ -264,10 +271,9 @@ def main():
     accelerator = args.accelerator
     niterations = args.niterations
     nsize       = args.nsize
-    show_numpy  = args.shownumpy
     
     #choose the appropriate numpy-like interface:
-    xp = numpy_initializer( show_numpy )
+    xp = numpy_initializer( args.shownumpy )
 
     #create working arrays on the target processor ( host or accelerator )
     [ A, B, C ] = create_arrays( nsize, xp )
@@ -276,6 +282,7 @@ def main():
     deltat_matmul = matmul_loop( niterations, A, B, C, xp )
 
     # check against source of truth
+    if( args.testseed ): np.random.default_rng( args.testseed )
     is_correct = check_correctness( nsize, A, B, C )
     assert( is_correct )
 
