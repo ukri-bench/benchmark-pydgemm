@@ -57,7 +57,7 @@ or [miniforge](https://github.com/conda-forge/miniforge).
 ```
 conda create -n py-dgemm python=3.10 -y
 conda activate py-dgemm
-conda install blas=*=*mkl numpy
+conda install "blas=*=*mkl" numpy
 ```
 The preceding example illustrates selection of the MKL as the BLAS library underlying NumPy.
 Other BLAS libraries may be configured as described in the
