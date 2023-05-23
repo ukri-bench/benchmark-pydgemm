@@ -8,9 +8,8 @@ import math
 ##Hardware-specific python modules (including drop-in Numpy subtitutes) here
 ##substitute your own!
 ##NumPy substitutes should be aliased to "xp"
-#import cupy 
-#from numba import cuda
-#xp = cupy
+import cupy 
+xp = cupy
 
 #// -----
 #// Function: numpy_initializer
@@ -47,26 +46,20 @@ def synchronize_host_accel():
 #// -----
 #// Function: initialize_accel_arrays
 #// Initialize matrices using accelerator memory/processor
-#// Here, numba.cuda is used to run this custome kernel on 
-#// May be modified for non-cuda or non-numba
+#// Here, cupy arrays are used to run this custom kernel on 
+#// May be modified for non-cupy
 #// -----
 def initialize_accel_arrays( nsize, A, B ):
 
-    @cuda.jit
-    def initialize_accel_arrays_kernel(nsize, A, B):
-        j, k = cuda.grid(2)
-        m = nsize
-        if (j < m) and (k < m):
-            A[j, k] = j*math.sin(j) + k*math.cos(k)
-            B[j, k] = k*math.cos(j) + j*math.sin(k)
+    @cupy.fuse()
+    def cupy_fuse_kernel(j, k):
+        a = j*cupy.sin(j) + k*cupy.cos(k)
+        b = k*cupy.cos(j) + j*cupy.sin(k)
+        return a, b
 
-    threadsperblock = (32, 32)
-    blockspergrid_x = math.ceil(nsize / threadsperblock[0])
-    blockspergrid_y = math.ceil(nsize / threadsperblock[1])
-    blockspergrid = (blockspergrid_x, blockspergrid_y)
-    
-    initialize_accel_arrays_kernel[blockspergrid, threadsperblock](nsize, A, B)
-    cuda.synchronize()
+    j, k = cupy.mgrid[0:nsize, 0:nsize]
+    A[:], B[:] = cupy_fuse_kernel(j, k)
+    cupy.cuda.runtime.deviceSynchronize()
 
 
 #// ----

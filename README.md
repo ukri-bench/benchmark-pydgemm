@@ -36,7 +36,7 @@ Function decoration, tuned kernel launch parameters, and
 JIT modules(e.g. [Numba](https://numba.pydata.org/) )
 may be used to optimize the matrix initialization.
 The formulas used to initialize the matrices
-(i.e. `A[j, k] = j*math.sin(j) + j*math.cos(k)` ) may not be changed.
+(i.e. `A[j, k] = j*math.sin(j) + k*math.cos(k)` ) may not be changed.
 
 Double precision (FP64) must be used throughout the benchmark.
 
@@ -70,14 +70,12 @@ The use of an hardware-specific NumPy replacement package is optional.
 Selection and installation of a suitable package is highly architecture specific.
 This example is based on the use of CuPy on NERSC's Perlmutter system.
 
-The [Numba](https://numba.pydata.org/)
-and [CuPy](https://cupy.dev/) packages are imported on lines
-[python-dgemm.py:8-13](https://gitlab.com/NERSC/N10-benchmarks/py-dgemm/-/blob/main/python-dgemm.py#L8).
+The  [CuPy](https://cupy.dev/) package is  imported on lines
+[python-dgemm.py:8-12](https://gitlab.com/NERSC/N10-benchmarks/py-dgemm/-/blob/main/python-dgemm.py#L8).
 These lines should be un-commented and modified to import the appropriate accelerated NumPy package.
 
-The following commands will add CuPy and Numba to the conda environment:
+The following commands will add CuPy to the conda environment:
 ```
-conda install numba
 conda install -c conda-forge cupy cudatoolkit=11.7
 ```
 Note that if you choose to install CuPy, you should ensure to specify
@@ -90,7 +88,6 @@ supported by the CUDA drivers on your system (11.7, in our case).
 Additional guidance for each of the aforementioned packages
 can be found in their respective installation guides.
 - [NumPy installation](https://numpy.org/install/)
-- [Numba installation](https://numba.pydata.org/numba-doc/latest/user/installing.html)
 - [CuPy installation](https://docs.cupy.dev/en/stable/install.html#installing-cupy-from-conda-forge)
 
 
