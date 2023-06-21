@@ -170,7 +170,7 @@ def matmul_loop(niterations, A, B, C, xp ):
 #// Sample a number (ntest) of matrix elements to compare
 #// Test against pythonic dot product
 #// ------------------------------------------------------- //    
-def check_correctness( nsize, A, B, C ):
+def check_correctness( nsize, A, B, C, testseed ):
 
     print("Running correctness test...")
     
@@ -181,7 +181,7 @@ def check_correctness( nsize, A, B, C ):
 
     ntest = 1024
     is_correct = True
-    rng = np.random.default_rng()
+    rng = np.random.default_rng(testseed)
     for itest in range( ntest ):
 
         i = rng.integers( nsize, size=1 )[0]
@@ -264,6 +264,7 @@ def main():
     accelerator = args.accelerator
     niterations = args.niterations
     nsize       = args.nsize
+    testseed    = args.testseed
     
     #choose the appropriate numpy-like interface:
     xp = numpy_initializer( args.shownumpy )
@@ -275,8 +276,7 @@ def main():
     deltat_matmul = matmul_loop( niterations, A, B, C, xp )
 
     # check against source of truth
-    if( args.testseed ): np.random.default_rng( args.testseed )
-    is_correct = check_correctness( nsize, A, B, C )
+    is_correct = check_correctness( nsize, A, B, C, testseed )
     assert( is_correct )
 
     # if correctness test has passed, report performance
