@@ -8,8 +8,11 @@ import math
 ##Hardware-specific python modules (including drop-in Numpy subtitutes) here
 ##substitute your own!
 ##NumPy substitutes should be aliased to "xp"
-import cupy 
-xp = cupy
+try:
+    import cupy 
+    xp = cupy
+except:
+    pass
 
 #// -----
 #// Function: numpy_initializer
