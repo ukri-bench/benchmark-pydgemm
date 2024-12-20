@@ -48,7 +48,7 @@ The preceding example illustrates selection of the MKL as the BLAS library under
 
 ### NumPy Replacements (optional)
 
-The use of an hardware-specific NumPy replacement package is optional. Selection and installation of a suitable package is highly architecture specific. This example is based on the use of CuPy on NERSC's Perlmutter system.
+The use of an hardware-specific NumPy replacement package is optional. Selection and installation of a suitable package is highly architecture specific. This example is based on the use of CuPy.
 
 The  [CuPy](https://cupy.dev/) package is  imported on lines [python-dgemm.py:8-12](python-dgemm.py#L8). These lines should be un-commented and modified to import the appropriate accelerated NumPy package.
 
@@ -58,7 +58,7 @@ The following commands will add CuPy to the conda environment:
 conda install -c conda-forge cupy cudatoolkit=11.7
 ```
 
-Note that if you choose to install CuPy, you should ensure to specify a cudatoolkit version that matches the latest version supported by the CUDA drivers on your system (11.7, in our case).
+Note that if you choose to install CuPy, you should ensure to specify a cudatoolkit version that matches the latest version supported by the CUDA drivers on your system (11.7, in our example).
 
 
 ### Installation Help
