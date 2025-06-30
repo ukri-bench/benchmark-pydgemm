@@ -176,6 +176,10 @@ Double precision (FP64) must be used throughout the benchmark.
 
 The matrix size to be used for the performance test may be tuned to maximize performance. It can be adjusted without modifying the source code by using the `--nsize` command line argument
 
+## License
+
+This benchmark description and associated files are released under the MIT license.
+
 ## References
 
 - NERSC-10 benchmark suite, accessed 3 Jul 2024, [https://gitlab.com/NERSC/N10-benchmarks/py-dgemm](https://gitlab.com/NERSC/N10-benchmarks/py-dgemm)
