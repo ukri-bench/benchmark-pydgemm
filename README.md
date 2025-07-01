@@ -122,9 +122,13 @@ We supply example job submission scripts:
 
 - [ARCHER2 CPU (AMD 7742), Slurm](archer2-cpu-amd7742.slurm )
 
+## Reporting results
+
+The primary figure of merit (FOM) is performance (Gflop/s) of the Best iteration. Report all data printed to stdout.
+
 ## Example performance data
 
-he primary figure of merit (FOM) is performance (Gflop/s) of the Best iteration. Report all data printed to stdout.
+### ARCHER2
 
 ```
 # ARCHER2 output
